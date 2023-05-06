@@ -1,6 +1,12 @@
 [package]
 name = "dimmer"
 version = "0.1.0"
+authors = [ "Koen Wilde <koen@chillheid.nl>" ]
+description = "Dimmer smoothly transitions your screen from one brightness to another."
+keywords = [ "wayland" ]
+categories = [ "command-line-utilities" ]
+repository = "https://github.com/koenw/dimmer"
+license = "Unlicense OR MIT"
 edition = "2021"
 
 [dependencies]
