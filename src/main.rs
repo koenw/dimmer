@@ -72,7 +72,7 @@ impl Brightness {
 /// Dim the screen to 30% brightness over 3 seconds, storing the current brightness in the
 /// statefile:
 ///
-/// `dimmer --save --target 30% --duration 3s`
+/// `dimmer --save --duration 3s 30%`
 ///
 /// Restore the screen to the previously saved brightness, using 2 seconds:
 ///
@@ -108,12 +108,6 @@ struct Opt {
     #[structopt(long, default_value = "5s")]
     duration: Duration,
 
-    /// The brightness to target. Can either be an absolute value between 0 and the value in the
-    /// file at `max-brightness-path`, or an percentage (e.g. "0%" to "100%").
-    ///
-    #[structopt(long = "target", default_value = "0")]
-    target_str: String,
-
     /// How many times per second the brightness will be updated.
     ///
     #[structopt(long, default_value = "60")]
@@ -128,6 +122,12 @@ struct Opt {
     ///
     #[structopt(long, short)]
     restore: bool,
+
+    /// The brightness to target. Can either be an absolute value between 0 and the value in the
+    /// file at `max-brightness-path`, or an percentage (e.g. "0%" to "100%").
+    ///
+    #[structopt(default_value = "0")]
+    target_str: String,
 }
 
 const SYS_BACKLIGHT_PREFIX: &str = "/sys/class/backlight";

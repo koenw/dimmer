@@ -14,7 +14,7 @@ dimmer --help
 dimmer
 
 # Dim (or brighten) the screen to 30%, first saving the current brightness to a statefile
-dimmer --save --target 30% --duration 5s
+dimmer --save --duration 5s 30%
 
 # Restore the screen from a previously saved brightness, using 2 seconds
 dimmer --restore --duration 2s
