@@ -1,15 +1,40 @@
 # dimmer
 
-Dimmer smoothly transitions your screen from one brightness to another. Tested
-only with Wayland and recent Linux kernels.
+Dimmer smoothly transitions your screen from one brightness to another. Very
+simple, and only tested with Wayland and recent Linux kernels.
+
+## Usage
 
 ```sh
-# Dim the screen over 3 seconds
-dimmer --duration 3s
+# Show usage information
+dimmer --help
 
-# Dim the screen, first saving the current brightness to a statefile
-dimmer --save --duration 5s
+# Dim the screen to zero brightness over 5 seconds
+dimmer
 
-# Restore the screen from a previously saved statefile
-dimmer --restore --duration 5s
+# Dim (or brighten) the screen to 30%, first saving the current brightness to a statefile
+dimmer --save --target 30% --duration 5s
+
+# Restore the screen from a previously saved brightness, using 2 seconds
+dimmer --restore --duration 2s
 ```
+
+## Installation
+
+<details>
+  <summary>Nix Flakes</summary>
+  Use as you would any nix flake, e.g. run directly with
+
+  ```sh
+  nix run github:koenw/dimmer
+  ```
+</details>
+
+<details>
+  <summary>Cargo</summary>
+  Install to cargo's bin directory with
+
+  ```sh
+  cargo install dimmer
+  ```
+</details>

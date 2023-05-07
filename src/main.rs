@@ -62,46 +62,70 @@ impl Brightness {
 
 #[derive(Debug, StructOpt)]
 /// Dimmer smoothly transitions your screen from one brightness to another.
+///
+/// ## Examples
+///
+/// Dim the screen to zero brightness over 5 seconds:
+///
+/// `dimmer`
+///
+/// Dim the screen to 30% brightness over 3 seconds, storing the current brightness in the
+/// statefile:
+///
+/// `dimmer --save --target 30% --duration 3s`
+///
+/// Restore the screen to the previously saved brightness, using 2 seconds:
+///
+/// `dimmer --restore --duration 2s`
 struct Opt {
     /// Path to the file to write to set the brightness. We'll try to pick this from
     /// `/sys/class/backlight` if not set.
+    ///
     #[structopt(long = "set-brightness-path", parse(from_os_str))]
     brightness_file: Option<PathBuf>,
 
     /// Path to the file to read the current brightness from. This can be the same file as the file to
     /// set the brightness.  We'll try to pick this from `/sys/class/backlight` if not set.
+    ///
     #[structopt(long = "get-brightness-path", parse(from_os_str))]
     current_brightness_file: Option<PathBuf>,
 
     /// Path to the file to read the maximum possible brightness from. We'll try to pick this
     /// from `/sys/class/backlight` if not set.
+    ///
     #[structopt(long = "max-brightness-path", parse(from_os_str))]
     max_brightness_file: Option<PathBuf>,
 
     /// The state file is used to keep track of the original brightness, so we
     /// can later restore it.
+    ///
     #[structopt(long, parse(from_os_str))]
     state_file: Option<PathBuf>,
 
     /// How long it should take for the screen to go from it's current
     /// brightness to zero brightness.
+    ///
     #[structopt(long, default_value = "5s")]
     duration: Duration,
 
     /// The brightness to target. Can either be an absolute value between 0 and the value in the
     /// file at `max-brightness-path`, or an percentage (e.g. "0%" to "100%").
+    ///
     #[structopt(long = "target", default_value = "0")]
     target_str: String,
 
     /// How many times per second the brightness will be updated.
+    ///
     #[structopt(long, default_value = "60")]
     framerate: u64,
 
     /// Save the current brightness to the statefile.
+    ///
     #[structopt(long, short)]
     save: bool,
 
     /// Restore previously saved brightness from the statefile.
+    ///
     #[structopt(long, short)]
     restore: bool,
 }
