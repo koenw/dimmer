@@ -3,6 +3,7 @@
 Dimmer smoothly transitions your screen from one brightness to another. Very
 simple, and only tested with Wayland and recent Linux kernels.
 
+
 ## Usage
 
 ```sh
@@ -18,6 +19,46 @@ dimmer --save --target 30% --duration 5s
 # Restore the screen from a previously saved brightness, using 2 seconds
 dimmer --restore --duration 2s
 ```
+
+### Integration with swayidle
+
+Many people like to automatically turnoff & lock their screen after a period of
+idleness and it would sure be nice if we could smoothly dim the screen before
+turning it off (and smoothly restore the brightness later). When we interact
+with the system during the dimming process, we'd like the dimming process to
+stop and the brightness to quickly be restored.
+
+Swayidle offers no possibilities for signals to be send to a (dimming) process
+that is already running, so the reaction to the new user input would have to
+come from a new process. However, the
+[swayidle(1)](https://github.com/swaywm/swayidle/blob/master/swayidle.1.scd)
+man-page recommends for security purposes to use the `-w` flag to wait for triggered
+commands to finish when used in combination with a screenlock, which would make
+it impossible for us to interrupt the screen dimming process on user input.
+
+For this reason, I recommend running one swayidle process *with* the `-w` flag
+to trigger the locking command, and another swayidle process *without* the `-w`
+flag to trigger the `dimmer` commands.
+
+<details>
+  <summary>
+    Sway and swayidle configuration example
+  </summary>
+
+  Excerpt from what a sway config (e.g. `~/.config/sway/config`) could look
+  like:
+  ```sway-config
+  exec swayidle -w \
+    timeout 620 'swaymsg "output * dpms off"' \
+    timeout 625 'swaylock -f' \
+    timeout 630 'systemctl suspend'
+
+  exec swayidle \
+    timeout 600 'dimmer --save' \
+    resume 'pkill dimmer; dimmer --restore --duration 1s'
+  ```
+</details>
+
 
 ## Installation
 
