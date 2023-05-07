@@ -6,23 +6,76 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use structopt::StructOpt;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum DimmerError {
+    #[error("Invalid percentage given by user")]
+    InvalidPercentage,
+    #[error("Failed to parse invalid Brightness")]
+    InvalidBrightness(#[from] std::num::ParseIntError),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+struct Brightness(u64);
+
+impl std::fmt::Display for Brightness {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::str::FromStr for Brightness {
+    type Err = DimmerError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        Ok(input.parse::<u64>().map(Brightness)?)
+    }
+}
+
+impl Brightness {
+    fn parse_with_percentage(input: &str, max: Brightness) -> Result<Brightness> {
+        match input.strip_suffix('%') {
+            Some(percentage) => {
+                let percentage = percentage.parse::<u64>()?;
+                if percentage > 100 {
+                    return Err(DimmerError::InvalidPercentage.into());
+                }
+                Ok(Brightness(
+                    ((percentage as f64 / 100.0) * max.0 as f64) as u64,
+                ))
+            }
+            None => Ok(input.parse::<u64>().map(Brightness)?),
+        }
+    }
+
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Brightness> {
+        let path = path.as_ref();
+        let res = std::fs::read_to_string(path)
+            .context("Failed to read {path}")?
+            .trim()
+            .parse()
+            .context("Failed to parse brightness from {path}")?;
+        Ok(res)
+    }
+}
 
 #[derive(Debug, StructOpt)]
 /// Dimmer smoothly transitions your screen from one brightness to another.
 struct Opt {
     /// Path to the file to write to set the brightness. We'll try to pick this from
     /// `/sys/class/backlight` if not set.
-    #[structopt(long="set-brightness-path", parse(from_os_str))]
+    #[structopt(long = "set-brightness-path", parse(from_os_str))]
     brightness_file: Option<PathBuf>,
 
     /// Path to the file to read the current brightness from. This can be the same file as the file to
     /// set the brightness.  We'll try to pick this from `/sys/class/backlight` if not set.
-    #[structopt(long="get-brightness-path", parse(from_os_str))]
+    #[structopt(long = "get-brightness-path", parse(from_os_str))]
     current_brightness_file: Option<PathBuf>,
 
     /// Path to the file to read the maximum possible brightness from. We'll try to pick this
     /// from `/sys/class/backlight` if not set.
-    #[structopt(long="max-brightness-path", parse(from_os_str))]
+    #[structopt(long = "max-brightness-path", parse(from_os_str))]
     max_brightness_file: Option<PathBuf>,
 
     /// The state file is used to keep track of the original brightness, so we
@@ -35,21 +88,22 @@ struct Opt {
     #[structopt(long, default_value = "5s")]
     duration: Duration,
 
-    /// The brightness to target.
-    #[structopt(long, default_value = "0")]
-    target: u64,
+    /// The brightness to target. Can either be an absolute value between 0 and the value in the
+    /// file at `max-brightness-path`, or an percentage (e.g. "0%" to "100%").
+    #[structopt(long = "target", default_value = "0")]
+    target_str: String,
 
     /// How many times per second the brightness will be updated.
     #[structopt(long, default_value = "60")]
     framerate: u64,
 
     /// Save the current brightness to the statefile.
-    #[structopt(long="save", short)]
-    save_brightness: bool,
+    #[structopt(long, short)]
+    save: bool,
 
     /// Restore previously saved brightness from the statefile.
-    #[structopt(long="restore", short)]
-    restore_brightness: bool,
+    #[structopt(long, short)]
+    restore: bool,
 }
 
 const SYS_BACKLIGHT_PREFIX: &str = "/sys/class/backlight";
@@ -76,41 +130,41 @@ fn main() -> Result<()> {
 
     let duration = opt.duration.as_secs();
 
-    let original_brightness = get_brightness(&current_brightness_file)?;
-    let max_brightness = get_brightness(&max_brightness_file)?;
+    let stored: Brightness = Brightness::from_file(&current_brightness_file)?;
+    let maximum: Brightness = Brightness::from_file(&max_brightness_file)?;
 
-    if opt.save_brightness {
-        save_brightness(&state_file, original_brightness)?;
+    if opt.save {
+        save(&state_file, stored)?;
     }
 
-    let target_brightness = if opt.restore_brightness {
-        get_brightness(state_file)?
+    let target: Brightness = if opt.restore {
+        Brightness::from_file(state_file)?
     } else {
-        opt.target
+        Brightness::parse_with_percentage(&opt.target_str, maximum)?
     };
-    let target_brightness = if target_brightness > max_brightness { max_brightness } else { target_brightness };
+    let target = if target > maximum { maximum } else { target };
 
     let total_frames = duration * opt.framerate;
 
-    let (step_size, dimming) = match (target_brightness, original_brightness) {
+    let (step_size, dimming): (u64, bool) = match (target.0, stored.0) {
         (t, o) if t > o => ((t - o) / total_frames, false),
         (t, o) if o > t => ((o - t) / total_frames, true),
         (_t, _o) => exit(0),
     };
 
     let output = File::create(&brightness_file)?;
-    let mut brightness = original_brightness;
+    let mut brightness = stored;
     for _i in 0..total_frames {
         if dimming {
-            if brightness < step_size {
-                brightness = 0;
+            if brightness.0 < step_size {
+                brightness = Brightness(0);
             } else {
-                brightness -= step_size;
+                brightness = Brightness(brightness.0 - step_size);
             }
-        } else if (target_brightness - brightness) < step_size {
-            brightness = target_brightness;
+        } else if (target.0 - brightness.0) < step_size {
+            brightness = target;
         } else {
-            brightness += step_size;
+            brightness = Brightness(brightness.0 + step_size);
         }
 
         set_brightness(&output, brightness)?;
@@ -129,23 +183,13 @@ fn find_file(filename: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-fn get_brightness<P: AsRef<Path>>(brightness_file: P) -> Result<u64> {
-    let path = brightness_file.as_ref();
-    let res = std::fs::read_to_string(path)
-        .context("Failed to read {brightness_file}")?
-        .trim()
-        .parse()
-        .context("Failed to parse brightness from {brightness_file}")?;
-    Ok(res)
-}
-
-fn set_brightness<F: Write>(mut f: F, brightness: u64) -> Result<()> {
-    write!(f, "{brightness}")?;
+fn set_brightness<F: Write>(mut f: F, brightness: Brightness) -> Result<()> {
+    write!(f, "{}", brightness.0)?;
     Ok(())
 }
 
-fn save_brightness<P: AsRef<Path>>(state_file: P, brightness: u64) -> Result<()> {
+fn save<P: AsRef<Path>>(state_file: P, brightness: Brightness) -> Result<()> {
     let mut output = File::create(&state_file)?;
-    write!(output, "{brightness}")?;
+    write!(output, "{}", brightness.0)?;
     Ok(())
 }
