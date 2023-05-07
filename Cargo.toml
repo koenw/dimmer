@@ -1,6 +1,6 @@
 [package]
 name = "dimmer"
-version = "0.2.0"
+version = "0.2.1"
 authors = [ "Koen Wilde <koen@chillheid.nl>" ]
 description = "Dimmer smoothly transitions your screen from one brightness to another."
 keywords = [ "wayland" ]
