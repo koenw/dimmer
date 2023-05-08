@@ -62,6 +62,17 @@ flag to trigger the `dimmer` commands.
 
 ## Installation
 
+### Permissions
+
+Setting the backlight works by writing to a special file in `/sys` (exposed by
+the kernel for this purpose), which on many distro's requires the user to be a
+member of a group, often `video`. If you receive a *Permission denied* error,
+chances are your user needs additional privileges to be able to write to the
+file.
+
+Check `ls -l /sys/class/backlight/*/brightness` for the permissions on the
+backlight file and the group you can add your user to.
+
 <details>
   <summary>Nix Flakes</summary>
   Use as you would any nix flake, e.g. run directly with
