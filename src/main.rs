@@ -146,8 +146,7 @@ fn main() -> Result<()> {
         .unwrap_or(find_file("max_brightness")?);
 
     let state_file = opt.state_file.unwrap_or_else(|| {
-        let dirs = xdg::BaseDirectories::with_prefix("dimmer")
-            .expect("Failed to setup XDG base directories");
+        let dirs = xdg::BaseDirectories::with_prefix("dimmer");
         dirs.place_config_file("stored_brightness")
             .expect("Failed to create xdg config path")
     });

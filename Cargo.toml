@@ -11,8 +11,8 @@ edition = "2021"
 
 [dependencies]
 structopt = "^0.3"
-humantime = "^2.1"
+humantime = "^2.2"
 glob = "^0.3"
-xdg = "^2.5"
+xdg = "^3.0"
 anyhow = "^1.0"
-thiserror = "^1.0"
+thiserror = "^2.0"
