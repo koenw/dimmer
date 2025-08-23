@@ -1,5 +1,5 @@
 {
-  description = "Dimmer smoothly transitions your screen from one brightness to another.";
+  description = "Dim (or brighten) your screen";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -20,8 +20,8 @@
           rustc = pkgs.rust-bin.stable.latest.default;
         };
 
-        rustPackage = rustPlatform.buildRustPackage {
-          name = "dimmer";
+        dim = rustPlatform.buildRustPackage {
+          name = "dim";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
         };
@@ -33,16 +33,13 @@
             rust-bin.stable.latest.default
           ];
           shellHook = ''
-            cat <<EOF
-            Welcome to the dimmer development shell.
-            EOF
             user_shell=$(getent passwd "$(whoami)" |cut -d: -f 7)
             exec "$user_shell"
           '';
         };
 
         packages = {
-          default = rustPackage;
+          default = dim;
         };
       }
     );

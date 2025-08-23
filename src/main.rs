@@ -9,7 +9,7 @@ use structopt::StructOpt;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-enum DimmerError {
+enum DimError {
     #[error("Invalid percentage given by user")]
     InvalidPercentage,
     #[error("Failed to parse invalid Brightness")]
@@ -26,7 +26,7 @@ impl std::fmt::Display for Brightness {
 }
 
 impl std::str::FromStr for Brightness {
-    type Err = DimmerError;
+    type Err = DimError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         Ok(input.parse::<u64>().map(Brightness)?)
@@ -39,7 +39,7 @@ impl Brightness {
             Some(percentage) => {
                 let percentage = percentage.parse::<u64>()?;
                 if percentage > 100 {
-                    return Err(DimmerError::InvalidPercentage.into());
+                    return Err(DimError::InvalidPercentage.into());
                 }
                 Ok(Brightness(
                     ((percentage as f64 / 100.0) * max.0 as f64) as u64,
@@ -61,22 +61,22 @@ impl Brightness {
 }
 
 #[derive(Debug, StructOpt)]
-/// Dimmer smoothly transitions your screen from one brightness to another.
+/// Dim smoothly transitions your screen from one brightness to another.
 ///
 /// ## Examples
 ///
 /// Dim the screen to zero brightness over 5 seconds:
 ///
-/// `dimmer`
+/// `dim`
 ///
 /// Dim the screen to 30% brightness over 3 seconds, storing the current brightness in the
 /// statefile:
 ///
-/// `dimmer --save --duration 3s 30%`
+/// `dim --save --duration 3s 30%`
 ///
 /// Restore the screen to the previously saved brightness, using 2 seconds:
 ///
-/// `dimmer --restore --duration 2s`
+/// `dim --restore --duration 2s`
 struct Opt {
     /// Path to the file to write to set the brightness. We'll try to pick this from
     /// `/sys/class/backlight` if not set.
@@ -146,7 +146,7 @@ fn main() -> Result<()> {
         .unwrap_or(find_file("max_brightness")?);
 
     let state_file = opt.state_file.unwrap_or_else(|| {
-        let dirs = xdg::BaseDirectories::with_prefix("dimmer");
+        let dirs = xdg::BaseDirectories::with_prefix("dim");
         dirs.place_config_file("stored_brightness")
             .expect("Failed to create xdg config path")
     });
