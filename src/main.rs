@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use clap::Parser;
 use glob::glob;
 use humantime::Duration;
 use std::fs::File;
@@ -6,7 +7,6 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::str::FromStr;
-use structopt::StructOpt;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -146,8 +146,8 @@ impl Brightness {
     }
 }
 
-#[derive(Debug, StructOpt)]
-/// Dim smoothly transitions your screen from one brightness to another.
+#[derive(Debug, Parser)]
+/// Dim smoothly controls screen brightness
 ///
 /// ## Examples
 ///
@@ -163,99 +163,111 @@ impl Brightness {
 /// Restore the screen to the previously saved brightness, using 2 seconds:
 ///
 /// `dim --restore --duration 2s`
-struct Opt {
+struct Args {
     /// Path to the file to write to set the brightness. We'll try to pick this from
     /// `/sys/class/backlight` if not set.
     ///
-    #[structopt(long = "set-brightness-path", parse(from_os_str))]
+    #[arg(
+        long = "set-brightness-path",
+        hide_short_help = true,
+        hide_long_help = true
+    )]
     brightness_file: Option<PathBuf>,
 
     /// Path to the file to read the current brightness from. This can be the same file as the file to
     /// set the brightness.  We'll try to pick this from `/sys/class/backlight` if not set.
     ///
-    #[structopt(long = "get-brightness-path", parse(from_os_str))]
+    #[arg(
+        long = "get-brightness-path",
+        hide_short_help = true,
+        hide_long_help = true
+    )]
     current_brightness_file: Option<PathBuf>,
 
     /// Path to the file to read the maximum possible brightness from. We'll try to pick this
     /// from `/sys/class/backlight` if not set.
     ///
-    #[structopt(long = "max-brightness-path", parse(from_os_str))]
+    #[arg(
+        long = "max-brightness-path",
+        hide_short_help = true,
+        hide_long_help = true
+    )]
     max_brightness_file: Option<PathBuf>,
 
     /// The state file is used to keep track of the original brightness, so we
     /// can later restore it.
     ///
-    #[structopt(long, parse(from_os_str))]
+    #[arg(long, hide_short_help = true)]
     state_file: Option<PathBuf>,
 
     /// How long it should take for the screen to go from it's current
     /// brightness to zero brightness.
     ///
-    #[structopt(long, default_value = "1s")]
+    #[arg(long, default_value = "1s")]
     duration: Duration,
 
     /// How many times per second the brightness will be updated.
     ///
-    #[structopt(long, default_value = "60")]
+    #[arg(long, default_value = "60")]
     framerate: u64,
 
     /// Save the current brightness to the statefile.
     ///
-    #[structopt(long, short)]
+    #[arg(long, short)]
     save: bool,
 
     /// Restore previously saved brightness from the statefile.
     ///
-    #[structopt(long, short)]
+    #[arg(long, short)]
     restore: bool,
 
     /// The brightness to target. Can either be an absolute value between 0 and the value in the
     /// file at `max-brightness-path`, or an percentage (e.g. "0%" to "100%").
     ///
-    #[structopt(default_value = "0")]
+    #[arg(default_value = "0")]
     target_str: String,
 }
 
 const SYS_BACKLIGHT_PREFIX: &str = "/sys/class/backlight";
 
 fn main() -> Result<()> {
-    let opt = Opt::from_args();
+    let args = Args::parse();
 
-    let brightness_file = opt.brightness_file.unwrap_or(find_file("brightness")?);
+    let brightness_file = args.brightness_file.unwrap_or(find_file("brightness")?);
 
-    let current_brightness_file = opt
+    let current_brightness_file = args
         .current_brightness_file
         .unwrap_or(find_file("actual_brightness")?);
 
-    let max_brightness_file = opt
+    let max_brightness_file = args
         .max_brightness_file
         .unwrap_or(find_file("max_brightness")?);
 
-    let state_file = opt.state_file.unwrap_or_else(|| {
+    let state_file = args.state_file.unwrap_or_else(|| {
         let dirs = xdg::BaseDirectories::with_prefix("dim");
         dirs.place_config_file("stored_brightness")
             .expect("Failed to create xdg config path")
     });
 
-    let duration = opt.duration.as_secs();
+    let duration = args.duration.as_secs();
 
     let current: Brightness = Brightness::from_file(&current_brightness_file)?;
     let maximum: Brightness = Brightness::from_file(&max_brightness_file)?;
 
-    if opt.save {
+    if args.save {
         save(&state_file, current)?;
     }
 
-    let target: Brightness = if opt.restore {
+    let target: Brightness = if args.restore {
         Brightness::from_file(state_file)?
     } else {
-        //Brightness::parse_with_percentage(&opt.target_str, maximum)?
-        Brightness::parse(&opt.target_str, current, maximum)?
+        //Brightness::parse_with_percentage(&args.target_str, maximum)?
+        Brightness::parse(&args.target_str, current, maximum)?
     };
     println!("target: {:?}", target);
     let target = if target > maximum { maximum } else { target };
 
-    let total_frames = duration * opt.framerate;
+    let total_frames = duration * args.framerate;
 
     let (step_size, dimming): (u64, bool) = match (target.0, current.0) {
         (t, o) if t > o => ((t - o) / total_frames, false),
