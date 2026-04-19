@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use std::str::FromStr;
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -14,6 +15,12 @@ enum DimError {
     InvalidPercentage,
     #[error("Failed to parse invalid Brightness")]
     InvalidBrightness(#[from] std::num::ParseIntError),
+}
+
+impl From<std::num::ParseFloatError> for DimError {
+    fn from(_: std::num::ParseFloatError) -> DimError {
+        DimError::InvalidPercentage
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
@@ -33,19 +40,98 @@ impl std::str::FromStr for Brightness {
     }
 }
 
-impl Brightness {
-    fn parse_with_percentage(input: &str, max: Brightness) -> Result<Brightness> {
-        match input.strip_suffix('%') {
-            Some(percentage) => {
-                let percentage = percentage.parse::<u64>()?;
-                if percentage > 100 {
-                    return Err(DimError::InvalidPercentage.into());
-                }
-                Ok(Brightness(
-                    ((percentage as f64 / 100.0) * max.0 as f64) as u64,
-                ))
+#[derive(Debug)]
+struct Change {
+    direction: ChangeDirection,
+    magnitude: Magnitude,
+}
+
+impl std::str::FromStr for Change {
+    type Err = DimError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let (direction, magnitude) = if let Some(value) = input.strip_prefix('+') {
+            (ChangeDirection::Increase, value)
+        } else if let Some(value) = input.strip_prefix('-') {
+            (ChangeDirection::Decrease, value)
+        } else {
+            (ChangeDirection::Absolute, input)
+        };
+
+        if let Some(percentage) = magnitude.strip_suffix("%") {
+            let percentage = percentage.parse::<f64>()?;
+            if percentage > 100.0 {
+                return Err(DimError::InvalidPercentage);
             }
-            None => Ok(input.parse::<u64>().map(Brightness)?),
+            Ok(Change {
+                direction,
+                magnitude: Magnitude::Percentage(percentage),
+            })
+        } else {
+            let magnitude = magnitude.parse::<u64>()?;
+            Ok(Change {
+                direction,
+                magnitude: Magnitude::Absolute(magnitude),
+            })
+        }
+    }
+}
+
+#[derive(Debug)]
+enum ChangeDirection {
+    Increase,
+    Decrease,
+    Absolute,
+}
+
+#[derive(Debug)]
+enum Magnitude {
+    Percentage(f64),
+    Absolute(u64),
+}
+
+//let maximum: Brightness = Brightness::from_file(&max_brightness_file)?;
+impl Brightness {
+    fn parse(input: &str, current: Brightness, max: Brightness) -> Result<Brightness> {
+        let change = Change::from_str(input)?;
+
+        match change {
+            Change {
+                direction: ChangeDirection::Increase,
+                magnitude: Magnitude::Percentage(percentage),
+            } => {
+                let fraction = (current.0 as f64 / 100.0) * percentage;
+                Ok(Brightness(std::cmp::min(
+                    (current.0 as f64 + fraction) as u64,
+                    max.0,
+                )))
+            }
+            Change {
+                direction: ChangeDirection::Decrease,
+                magnitude: Magnitude::Percentage(percentage),
+            } => {
+                let fraction = (current.0 as f64 / 100.0) * percentage;
+                Ok(Brightness(std::cmp::max(
+                    (current.0 as f64 - fraction) as u64,
+                    1,
+                )))
+            }
+            Change {
+                direction: ChangeDirection::Absolute,
+                magnitude: Magnitude::Percentage(percentage),
+            } => Ok(Brightness(((percentage / 100.0) * max.0 as f64) as u64)),
+            Change {
+                direction: ChangeDirection::Increase,
+                magnitude: Magnitude::Absolute(value),
+            } => Ok(Brightness(std::cmp::min(current.0 + value, max.0))),
+            Change {
+                direction: ChangeDirection::Decrease,
+                magnitude: Magnitude::Absolute(value),
+            } => Ok(Brightness(std::cmp::max(current.0 - value, 1))),
+            Change {
+                direction: ChangeDirection::Absolute,
+                magnitude: Magnitude::Absolute(value),
+            } => Ok(Brightness(std::cmp::max(value, max.0))),
         }
     }
 
@@ -153,30 +239,32 @@ fn main() -> Result<()> {
 
     let duration = opt.duration.as_secs();
 
-    let stored: Brightness = Brightness::from_file(&current_brightness_file)?;
+    let current: Brightness = Brightness::from_file(&current_brightness_file)?;
     let maximum: Brightness = Brightness::from_file(&max_brightness_file)?;
 
     if opt.save {
-        save(&state_file, stored)?;
+        save(&state_file, current)?;
     }
 
     let target: Brightness = if opt.restore {
         Brightness::from_file(state_file)?
     } else {
-        Brightness::parse_with_percentage(&opt.target_str, maximum)?
+        //Brightness::parse_with_percentage(&opt.target_str, maximum)?
+        Brightness::parse(&opt.target_str, current, maximum)?
     };
+    println!("target: {:?}", target);
     let target = if target > maximum { maximum } else { target };
 
     let total_frames = duration * opt.framerate;
 
-    let (step_size, dimming): (u64, bool) = match (target.0, stored.0) {
+    let (step_size, dimming): (u64, bool) = match (target.0, current.0) {
         (t, o) if t > o => ((t - o) / total_frames, false),
         (t, o) if o > t => ((o - t) / total_frames, true),
         (_t, _o) => exit(0),
     };
 
     let output = File::create(&brightness_file)?;
-    let mut brightness = stored;
+    let mut brightness = current;
     for _i in 0..total_frames {
         if dimming {
             if brightness.0 < step_size {
