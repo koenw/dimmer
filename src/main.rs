@@ -105,7 +105,7 @@ struct Opt {
     /// How long it should take for the screen to go from it's current
     /// brightness to zero brightness.
     ///
-    #[structopt(long, default_value = "5s")]
+    #[structopt(long, default_value = "1s")]
     duration: Duration,
 
     /// How many times per second the brightness will be updated.
