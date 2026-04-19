@@ -1,6 +1,6 @@
 [package]
 name = "dim"
-version = "0.2.1"
+version = "0.3.1"
 authors = [ "Koen Wilde <koen@chillheid.nl>" ]
 description = "Dim your screen"
 keywords = [ "wayland" ]
