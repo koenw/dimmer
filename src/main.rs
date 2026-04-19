@@ -151,9 +151,17 @@ impl Brightness {
 ///
 /// ## Examples
 ///
-/// Dim the screen to zero brightness over 5 seconds:
+/// Show the current brightness
 ///
 /// `dim`
+///
+/// Increase the brightness by 10%
+///
+/// `dim -- +10%`
+///
+/// // Decrease the brightness by 10%
+///
+/// `dim -- -10%`
 ///
 /// Dim the screen to 30% brightness over 3 seconds, storing the current brightness in the
 /// statefile:
@@ -224,8 +232,8 @@ struct Args {
     /// The brightness to target. Can either be an absolute value between 0 and the value in the
     /// file at `max-brightness-path`, or an percentage (e.g. "0%" to "100%").
     ///
-    #[arg(default_value = "0")]
-    target_str: String,
+    #[arg()]
+    target_str: Option<String>,
 }
 
 const SYS_BACKLIGHT_PREFIX: &str = "/sys/class/backlight";
@@ -260,11 +268,13 @@ fn main() -> Result<()> {
 
     let target: Brightness = if args.restore {
         Brightness::from_file(state_file)?
+    } else if let Some(target_str) = args.target_str {
+        Brightness::parse(&target_str, current, maximum)?
     } else {
-        //Brightness::parse_with_percentage(&args.target_str, maximum)?
-        Brightness::parse(&args.target_str, current, maximum)?
+        println!("Current: {current}");
+        println!("Maximum: {maximum}");
+        exit(0);
     };
-    println!("target: {:?}", target);
     let target = if target > maximum { maximum } else { target };
 
     let total_frames = duration * args.framerate;
