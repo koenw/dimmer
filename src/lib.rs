@@ -22,6 +22,8 @@ pub enum DimError {
     GlobError,
     #[error("Failed to find brightness file: ")]
     PatternError(#[from] glob::PatternError),
+    #[error("Failed to send dbus message: {0}")]
+    Dbus(#[from] dbus::Error),
 }
 
 impl From<glob::GlobError> for DimError {
@@ -42,8 +44,26 @@ pub fn find_file(filename: &str) -> Result<PathBuf, DimError> {
     Ok(path)
 }
 
+#[cfg(not(feature = "dbus"))]
 pub fn set_brightness<F: Write>(mut f: F, brightness: Brightness) -> Result<(), DimError> {
     write!(f, "{}", brightness)?;
+    Ok(())
+}
+
+#[cfg(feature = "dbus")]
+pub fn set_brightness(_f: impl Write, brightness: Brightness) -> Result<(), DimError> {
+    let conn = dbus::blocking::Connection::new_system()?;
+    let proxy = conn.with_proxy(
+        "org.freedesktop.login1",
+        "/org/freedesktop/login1/session/auto",
+        std::time::Duration::from_millis(100),
+    );
+    let _: () = proxy.method_call(
+        "org.freedesktop.login1.Session",
+        "SetBrightness",
+        ("backlight", "intel_backlight", *brightness as u32),
+    )?;
+
     Ok(())
 }
 

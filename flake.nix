@@ -24,11 +24,14 @@
           name = "dim";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
+          nativeBuildInputs = with pkgs; [ pkg-config dbus.dev ];
+          buildInputs = with pkgs; [ pkg-config dbus.dev ];
         };
       in
       with pkgs;
       {
         devShells.default = mkShell {
+          inputsFrom = [ dim ];
           buildInputs = [
             rust-bin.stable.latest.default
           ];
