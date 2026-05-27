@@ -129,8 +129,8 @@ fn main() -> Result<()> {
     } else if let Some(target_str) = args.target_str {
         Brightness::parse(&target_str, current, maximum)?
     } else {
-        println!("Current: {current}");
-        println!("Maximum: {maximum}");
+        let pct = (current / maximum) * 100.0;
+        println!("Current brightness: {current} / {maximum} ({:.2}%)", pct);
         exit(0);
     };
     let target = if target > maximum { maximum } else { target };

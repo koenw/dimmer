@@ -45,6 +45,14 @@ impl Sub<u64> for Brightness {
     }
 }
 
+impl std::ops::Div for Brightness {
+    type Output = f64;
+
+    fn div(self, other: Brightness) -> Self::Output {
+        self.0 as f64 / other.0 as f64
+    }
+}
+
 impl Brightness {
     pub fn new(value: u64) -> Brightness {
         Brightness(value)
