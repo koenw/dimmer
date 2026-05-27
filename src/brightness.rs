@@ -1,8 +1,13 @@
 use crate::change::*;
 use crate::DimError;
+use glob::glob;
+use std::io::Write;
 use std::ops::{Add, Deref, Sub};
 use std::path::Path;
+use std::path::PathBuf;
 use std::str::FromStr;
+
+pub const SYS_BACKLIGHT_PREFIX: &str = "/sys/class/backlight";
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Brightness(u64);
@@ -58,6 +63,47 @@ impl Brightness {
         Brightness(value)
     }
 
+    pub fn current() -> Result<Self, DimError> {
+        Self::from_file(Self::find_file("actual_brightness")?)
+    }
+
+    pub fn max() -> Result<Self, DimError> {
+        Self::from_file(Self::find_file("max_brightness")?)
+    }
+
+    fn write_file(&self, f: impl AsRef<Path>) -> Result<(), DimError> {
+        let mut f = std::fs::File::create(f.as_ref())?;
+        write!(f, "{}", self)?;
+        Ok(())
+    }
+
+    pub fn save(&self, state_file: impl AsRef<Path>) -> Result<(), DimError> {
+        self.write_file(state_file)
+    }
+
+    #[cfg(not(feature = "dbus"))]
+    pub fn set(&self, f: &impl Write) -> Result<Self, DimError> {
+        //let f = std::fs::File::Create(Self::find_file("brightness")?)?;
+        write!(f, "{}", self)?;
+    }
+
+    #[cfg(feature = "dbus")]
+    pub fn set(&self, _f: &impl std::io::Write) -> Result<(), DimError> {
+        let conn = dbus::blocking::Connection::new_system()?;
+        let proxy = conn.with_proxy(
+            "org.freedesktop.login1",
+            "/org/freedesktop/login1/session/auto",
+            std::time::Duration::from_millis(100),
+        );
+        let _: () = proxy.method_call(
+            "org.freedesktop.login1.Session",
+            "SetBrightness",
+            ("backlight", "intel_backlight", self.0 as u32),
+        )?;
+
+        Ok(())
+    }
+
     pub fn parse(
         input: &str,
         current: Brightness,
@@ -103,6 +149,15 @@ impl Brightness {
                 magnitude: Magnitude::Absolute(value),
             } => Ok(Brightness(std::cmp::max(value, max.0))),
         }
+    }
+
+    pub fn find_file(filename: &str) -> Result<PathBuf, DimError> {
+        let glob_path = format!("{SYS_BACKLIGHT_PREFIX}/*/{filename}");
+        let path = glob(&glob_path)?.next().ok_or(DimError::GlobError)??;
+        if !path.is_file() {
+            return Err(DimError::FileNotFound(path.to_string_lossy().to_string()));
+        }
+        Ok(path)
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Brightness, DimError> {

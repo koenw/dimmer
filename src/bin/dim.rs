@@ -99,15 +99,9 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let brightness_file = args.brightness_file.unwrap_or(find_file("brightness")?);
-
-    let current_brightness_file = args
-        .current_brightness_file
-        .unwrap_or(find_file("actual_brightness")?);
-
-    let max_brightness_file = args
-        .max_brightness_file
-        .unwrap_or(find_file("max_brightness")?);
+    let brightness_file = args
+        .brightness_file
+        .unwrap_or(Brightness::find_file("brightness")?);
 
     let state_file = args.state_file.unwrap_or_else(|| {
         let dirs = xdg::BaseDirectories::with_prefix("dim");
@@ -117,11 +111,11 @@ fn main() -> Result<()> {
 
     let duration = args.duration.as_secs();
 
-    let current: Brightness = Brightness::from_file(&current_brightness_file)?;
-    let maximum: Brightness = Brightness::from_file(&max_brightness_file)?;
+    let current = Brightness::current()?;
+    let maximum = Brightness::max()?;
 
     if args.save {
-        save(&state_file, current)?;
+        current.save(&state_file)?;
     }
 
     let target: Brightness = if args.restore {
@@ -158,7 +152,7 @@ fn main() -> Result<()> {
             brightness = brightness + step_size;
         }
 
-        set_brightness(&output, brightness)?;
+        brightness.set(&output)?;
         std::thread::sleep(std::time::Duration::from_millis(1000 / 60));
     }
     Ok(())
