@@ -3,6 +3,8 @@ use thiserror::Error;
 mod brightness;
 pub use brightness::*;
 mod change;
+pub mod dimmer;
+pub use dimmer::Dimmer;
 
 #[derive(Error, Debug)]
 pub enum DimError {
