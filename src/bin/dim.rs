@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::process::exit;
 
 #[derive(Debug, Parser)]
-/// Dim smoothly controls screen brightness
+/// Smoothly control your screen's brightness
 ///
 /// ## Examples
 ///
@@ -17,11 +17,15 @@ use std::process::exit;
 ///
 /// Increase the brightness by 10%
 ///
-/// `dim -- +10%`
+/// `dim +10%`
 ///
-/// // Decrease the brightness by 10%
+/// Decrease the brightness by 10%
 ///
-/// `dim -- -10%`
+/// `dim -10%`
+///
+/// Save the current brightness
+///
+/// dim --save
 ///
 /// Dim the screen to 30% brightness over 3 seconds, storing the current brightness in the
 /// statefile:
@@ -34,7 +38,6 @@ use std::process::exit;
 struct Args {
     /// Path to the file to write to set the brightness. We'll try to pick this from
     /// `/sys/class/backlight` if not set.
-    ///
     #[arg(
         long = "set-brightness-path",
         hide_short_help = true,
@@ -44,7 +47,6 @@ struct Args {
 
     /// Path to the file to read the current brightness from. This can be the same file as the file to
     /// set the brightness.  We'll try to pick this from `/sys/class/backlight` if not set.
-    ///
     #[arg(
         long = "get-brightness-path",
         hide_short_help = true,
@@ -54,7 +56,6 @@ struct Args {
 
     /// Path to the file to read the maximum possible brightness from. We'll try to pick this
     /// from `/sys/class/backlight` if not set.
-    ///
     #[arg(
         long = "max-brightness-path",
         hide_short_help = true,
@@ -62,37 +63,30 @@ struct Args {
     )]
     max_brightness_file: Option<PathBuf>,
 
-    /// The state file is used to keep track of the original brightness, so we
-    /// can later restore it.
-    ///
+    /// The state file is used to save the current brightness, so we can later restore it.
     #[arg(long, hide_short_help = true)]
     state_file: Option<PathBuf>,
 
     /// How long it should take for the screen to go from it's current
     /// brightness to zero brightness.
-    ///
-    #[arg(long, default_value = "1s")]
+    #[arg(long, default_value = "330ms")]
     duration: Duration,
 
     /// How many times per second the brightness will be updated.
-    ///
     #[arg(long, default_value = "60")]
     framerate: u32,
 
     /// Save the current brightness to the statefile.
-    ///
     #[arg(long, short)]
     save: bool,
 
     /// Restore previously saved brightness from the statefile.
-    ///
     #[arg(long, short)]
     restore: bool,
 
     /// The brightness to target. Can either be an absolute value between 0 and the value in the
     /// file at `max-brightness-path`, or an percentage (e.g. "0%" to "100%").
-    ///
-    #[arg()]
+    #[arg(allow_hyphen_values = true)]
     target_str: Option<String>,
 }
 
