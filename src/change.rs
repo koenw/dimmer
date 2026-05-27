@@ -9,8 +9,8 @@ pub(crate) enum ChangeDirection {
 
 #[derive(Debug)]
 pub(crate) enum Magnitude {
-    Percentage(f64),
-    Absolute(u64),
+    Percentage(f32),
+    Absolute(u32),
 }
 
 #[derive(Debug)]
@@ -32,7 +32,7 @@ impl std::str::FromStr for Change {
         };
 
         if let Some(percentage) = magnitude.strip_suffix("%") {
-            let percentage = percentage.parse::<f64>()?;
+            let percentage = percentage.parse::<f32>()?;
             if percentage > 100.0 {
                 return Err(DimError::InvalidPercentage);
             }
@@ -41,7 +41,7 @@ impl std::str::FromStr for Change {
                 magnitude: Magnitude::Percentage(percentage),
             })
         } else {
-            let magnitude = magnitude.parse::<u64>()?;
+            let magnitude = magnitude.parse::<u32>()?;
             Ok(Change {
                 direction,
                 magnitude: Magnitude::Absolute(magnitude),

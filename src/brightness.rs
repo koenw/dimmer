@@ -10,10 +10,10 @@ use std::str::FromStr;
 pub const SYS_BACKLIGHT_PREFIX: &str = "/sys/class/backlight";
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub struct Brightness(u64);
+pub struct Brightness(u32);
 
 impl Deref for Brightness {
-    type Target = u64;
+    type Target = u32;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -30,36 +30,36 @@ impl std::str::FromStr for Brightness {
     type Err = DimError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        Ok(input.parse::<u64>().map(Brightness)?)
+        Ok(input.parse::<u32>().map(Brightness)?)
     }
 }
 
-impl Add<u64> for Brightness {
+impl Add<u32> for Brightness {
     type Output = Brightness;
 
-    fn add(self, other: u64) -> Brightness {
+    fn add(self, other: u32) -> Brightness {
         Brightness(self.0 + other)
     }
 }
 
-impl Sub<u64> for Brightness {
+impl Sub<u32> for Brightness {
     type Output = Brightness;
 
-    fn sub(self, other: u64) -> Brightness {
+    fn sub(self, other: u32) -> Brightness {
         Brightness(self.0 - other)
     }
 }
 
 impl std::ops::Div for Brightness {
-    type Output = f64;
+    type Output = f32;
 
     fn div(self, other: Brightness) -> Self::Output {
-        self.0 as f64 / other.0 as f64
+        self.0 as f32 / other.0 as f32
     }
 }
 
 impl Brightness {
-    pub fn new(value: u64) -> Brightness {
+    pub fn new(value: u32) -> Brightness {
         Brightness(value)
     }
 
@@ -98,7 +98,7 @@ impl Brightness {
         let _: () = proxy.method_call(
             "org.freedesktop.login1.Session",
             "SetBrightness",
-            ("backlight", "intel_backlight", self.0 as u32),
+            ("backlight", "intel_backlight", self.0),
         )?;
 
         Ok(())
@@ -116,9 +116,9 @@ impl Brightness {
                 direction: ChangeDirection::Increase,
                 magnitude: Magnitude::Percentage(percentage),
             } => {
-                let fraction = (current.0 as f64 / 100.0) * percentage;
+                let fraction = (current.0 as f32 / 100.0) * percentage;
                 Ok(Brightness(std::cmp::min(
-                    (current.0 as f64 + fraction) as u64,
+                    (current.0 as f32 + fraction) as u32,
                     max.0,
                 )))
             }
@@ -126,16 +126,16 @@ impl Brightness {
                 direction: ChangeDirection::Decrease,
                 magnitude: Magnitude::Percentage(percentage),
             } => {
-                let fraction = (current.0 as f64 / 100.0) * percentage;
+                let fraction = (current.0 as f32 / 100.0) * percentage;
                 Ok(Brightness(std::cmp::max(
-                    (current.0 as f64 - fraction) as u64,
+                    (current.0 as f32 - fraction) as u32,
                     1,
                 )))
             }
             Change {
                 direction: ChangeDirection::Absolute,
                 magnitude: Magnitude::Percentage(percentage),
-            } => Ok(Brightness(((percentage / 100.0) * max.0 as f64) as u64)),
+            } => Ok(Brightness(((percentage / 100.0) * max.0 as f32) as u32)),
             Change {
                 direction: ChangeDirection::Increase,
                 magnitude: Magnitude::Absolute(value),

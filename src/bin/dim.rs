@@ -77,7 +77,7 @@ struct Args {
     /// How many times per second the brightness will be updated.
     ///
     #[arg(long, default_value = "60")]
-    framerate: u64,
+    framerate: u32,
 
     /// Save the current brightness to the statefile.
     ///
@@ -109,7 +109,7 @@ fn main() -> Result<()> {
             .expect("Failed to create xdg config path")
     });
 
-    let duration = args.duration.as_secs();
+    let duration: f32 = args.duration.as_secs_f32();
 
     let current = Brightness::current()?;
     let maximum = Brightness::max()?;
@@ -129,9 +129,9 @@ fn main() -> Result<()> {
     };
     let target = if target > maximum { maximum } else { target };
 
-    let total_frames = duration * args.framerate;
+    let total_frames = (duration * args.framerate as f32).floor() as u32;
 
-    let (step_size, dimming): (u64, bool) = match (*target, *current) {
+    let (step_size, dimming): (u32, bool) = match (*target, *current) {
         (t, o) if t > o => ((t - o) / total_frames, false),
         (t, o) if o > t => ((o - t) / total_frames, true),
         (_t, _o) => exit(0),
