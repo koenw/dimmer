@@ -20,8 +20,8 @@
           rustc = pkgs.rust-bin.stable.latest.default;
         };
 
-        dim = rustPlatform.buildRustPackage {
-          name = "dim";
+        dimmer = rustPlatform.buildRustPackage {
+          name = "dimmer";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = with pkgs; [ pkg-config dbus.dev ];
@@ -31,7 +31,7 @@
       with pkgs;
       {
         devShells.default = mkShell {
-          inputsFrom = [ dim ];
+          inputsFrom = [ dimmer ];
           buildInputs = [
             rust-bin.stable.latest.default
           ];
@@ -42,7 +42,7 @@
         };
 
         packages = {
-          default = dim;
+          default = dimmer;
         };
       }
     );

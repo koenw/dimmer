@@ -1,6 +1,6 @@
+use ::dimmer::*;
 use anyhow::Result;
 use clap::Parser;
-use dim::*;
 use humantime::Duration;
 use std::fs::File;
 use std::path::PathBuf;
@@ -100,12 +100,12 @@ fn main() -> Result<()> {
             .expect("Failed to create xdg config path")
     });
 
-    let dimmer: &mut dyn dim::Dimmer = match args.dimmer {
+    let dimmer: &mut dyn dimmer::Dimmer = match args.dimmer {
         Dimmer::Sysfs => {
             let f = File::create(&brightness_file)?;
-            &mut dim::dimmer::Sysfs::with_file(f)
+            &mut crate::dimmer::Sysfs::with_file(f)
         }
-        Dimmer::Dbus => &mut dim::dimmer::Dbus::new()?,
+        Dimmer::Dbus => &mut crate::dimmer::Dbus::new()?,
     };
 
     let duration: f32 = args.duration.as_secs_f32();

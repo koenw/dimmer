@@ -1,5 +1,5 @@
 [package]
-name = "dim"
+name = "dimmer"
 version = "0.4.0"
 description = "Dim or brighten your screen"
 keywords = [ "wayland" ]
