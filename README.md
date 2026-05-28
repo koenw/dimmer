@@ -1,7 +1,17 @@
 # dimmer
 
-Dimmer smoothly transitions your screen from one brightness to another. Very
-simple, and only tested with Wayland and recent Linux kernels.
+Dimmer smoothly changes the brightness of your screen.
+
+
+## Features
+
+* Smooth, configurable transitions
+* No special permissions required (using the default [systemd-logind D-Bus backend](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html))
+* Writing directly to sysfs is also supported (e.g. if you don't want the
+  systemd-logind dependency)
+* Brightness can be changed relative to the current brightness, making
+  multiple transitions in a row extra satisfying.
+* Save/Restore brightness from a file
 
 
 ## Usage
@@ -10,15 +20,61 @@ simple, and only tested with Wayland and recent Linux kernels.
 # Show usage information
 dimmer --help
 
-# Dim the screen to zero brightness over 5 seconds
+# Show current brightness
 dimmer
 
-# Dim (or brighten) the screen to 30%, first saving the current brightness to a statefile
-dimmer --save --duration 5s 30%
+# Increase the brightness by 10%
+dimmer +10%
 
-# Restore the screen from a previously saved brightness, using 2 seconds
-dimmer --restore --duration 2s
+# Decrease the brightness by 10%
+dimmer -10%
+
+# Set to maximum brightness
+dimmer 100%
+
+# Save the current brightness to a file
+dimmer --save
+
+# Dim (or brighten) the screen to 30%, first saving the current brightness
+dimmer --save 30%
+
+# Restore the screen from a previously saved brightness, taking half a second
+dimmer --restore --duration 0.5s
 ```
+
+
+### Tips for binding to a hotkey
+
+The default value for the transition duration is tweaked for manual use from
+the command-line. When binding `dimmer` to a hotkey, I would suggest starting
+with a lower duration and a relatively small change, e.g.
+
+```sh
+dimmer --duration 100ms +15% # Bound to XF86MonBrightnessUp
+dimmer --duration 100ms -15% # Bound to XF86MonBrightnessDown
+```
+
+
+## Installation
+
+<details>
+  <summary>`nix run github:koenw/dimmer`</summary>
+  Use as you would any nix flake, e.g. run directly with
+
+  ```sh
+  nix run github:koenw/dimmer
+  ```
+</details>
+
+<details>
+  <summary>`cargo install dimmer`</summary>
+  Install to cargo's bin directory with
+
+  ```sh
+  cargo install dimmer
+  ```
+</details>
+
 
 ### Integration with swayidle
 
@@ -55,38 +111,24 @@ flag to trigger the `dimmer` commands.
 
   exec swayidle \
     timeout 600 'dimmer --save' \
-    resume 'pkill dimmer; dimmer --restore --duration 1s'
+    resume 'pkill dimmer; dimmer --restore'
   ```
 </details>
 
 
-## Installation
+### A note on permissions when using the Sysfs backend
 
-### Permissions
+**Note that the default D-Bus backend requires no special permissions.**
 
-Setting the backlight works by writing to a special file in `/sys` (exposed by
-the kernel for this purpose), which on many distro's requires the user to be a
-member of a group, often `video`. If you receive a *Permission denied* error,
-chances are your user needs additional privileges to be able to write to the
+The Sysfs backend changes the brightness by writing to a special
+file in `/sys` (exposed by the kernel for this purpose), which on
+many distro's requires the user to be a member of a group, often
+`video`. If you receive a *Permission denied* error, chances are
+your user needs additional privileges to be able to write to the
 file.
 
 Check `ls -l /sys/class/backlight/*/brightness` for the permissions on the
 backlight file and the group you can add your user to.
 
-<details>
-  <summary>Nix Flakes</summary>
-  Use as you would any nix flake, e.g. run directly with
-
-  ```sh
-  nix run github:koenw/dimmer
-  ```
-</details>
-
-<details>
-  <summary>Cargo</summary>
-  Install to cargo's bin directory with
-
-  ```sh
-  cargo install dimmer
-  ```
-</details>
+If you're going this route, you'll probably want to write a udev rule to grant
+your user the required permissions, but that's behind the scope of this README.
